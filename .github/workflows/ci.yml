@@ -1,0 +1,48 @@
+name: Source validation
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  host-tests:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Exact-tree source and secret scan
+        run: python -B tools/scan_publication.py
+      - name: Python tooling and release tests
+        run: |
+          python -B -m unittest discover -s software/tools/blocklist -p test_blocklist.py -v
+          python -B -m unittest discover -s tests -p "test_*.py" -v
+      - name: Checksum-pinned portable host compiler
+        shell: pwsh
+        run: |
+          $zip = Join-Path $env:RUNNER_TEMP 'llvm.zip'
+          Invoke-WebRequest 'https://github.com/mstorsjo/llvm-mingw/releases/download/20260922/llvm-mingw-20260922-ucrt-x86_64.zip' -OutFile $zip
+          if ((Get-FileHash $zip -Algorithm SHA256).Hash -ne 'e3ad77d117a4bea19a7a3b333341824d79a5a371004a10e25b8504e7b3047666') { throw 'Checksum mismatch' }
+          Expand-Archive $zip (Join-Path $env:RUNNER_TEMP 'llvm')
+          $bin = Join-Path $env:RUNNER_TEMP 'llvm/llvm-mingw-20260922-ucrt-x86_64/bin'
+          $env:CXX = Join-Path $bin 'clang++.exe'
+          $env:CC = Join-Path $bin 'clang.exe'
+          $env:Path = $bin + ';' + $env:Path
+          python -B tests/run_host_tests.py
+  placeholder-build:
+    runs-on: ubuntu-latest
+    container: espressif/idf:v4.4.7
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Clean build, placeholder credentials only
+        shell: bash
+        run: |
+          set -eu
+          . "$IDF_PATH/export.sh"
+          printf 'CONFIG_WIFI_SSID="CI_PLACEHOLDER_SSID"\nCONFIG_WIFI_PASSWORD="CI_PLACEHOLDER_PASSWORD"\n' > "$RUNNER_TEMP/sdkconfig.placeholder"
+          idf.py -C software/firmware -B "$RUNNER_TEMP/esper-build" -D "SDKCONFIG=$RUNNER_TEMP/sdkconfig" -D "SDKCONFIG_DEFAULTS=$GITHUB_WORKSPACE/software/firmware/sdkconfig.defaults;$RUNNER_TEMP/sdkconfig.placeholder" build
+          idf.py -C software/firmware -B "$RUNNER_TEMP/esper-build" size
+          python -B tools/report_build.py "$RUNNER_TEMP/esper-build"
+# Deliberately no upload-artifact, GitHub release creation, flashing, or deployment steps.

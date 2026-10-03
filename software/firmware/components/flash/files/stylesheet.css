@@ -1,0 +1,3 @@
+body{font:16px system-ui,sans-serif;margin:2rem;background:#f6f8fa;color:#17212b}
+main{max-width:900px;margin:auto}small,footer{color:#526170}dl{display:grid;grid-template-columns:minmax(120px,1fr) 2fr}
+dt,dd{padding:.4rem;margin:0;border-bottom:1px solid #dde3e8;overflow-wrap:anywhere}li{padding:.3rem;overflow-wrap:anywhere}

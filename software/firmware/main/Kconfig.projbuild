@@ -1,0 +1,14 @@
+menu "Experimental Esper fork"
+config WIFI_ENABLE
+    bool
+    default y
+config WIFI_SSID
+    string "Wi-Fi SSID (private; do not commit sdkconfig)"
+    default ""
+config WIFI_PASSWORD
+    string "Wi-Fi password (private; do not commit sdkconfig)"
+    default ""
+config ESPER_QUERY_LOG_ENABLED
+    bool "Enable read-only LAN query log (100 entries; browsing metadata)"
+    default n
+endmenu

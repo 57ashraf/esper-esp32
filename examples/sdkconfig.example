@@ -1,0 +1,5 @@
+# Copy locally to ignored software/firmware/sdkconfig, or use menuconfig.
+# Do not commit the edited copy. Credentials are embedded in local firmware builds.
+CONFIG_WIFI_SSID=""
+CONFIG_WIFI_PASSWORD=""
+# CONFIG_ESPER_QUERY_LOG_ENABLED is not set
