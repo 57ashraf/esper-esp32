@@ -89,6 +89,7 @@ class DNS {
         Header header = {};
         Question question = {};
         uint16_t udp_limit = 512;
+        bool has_edns = false;
         std::vector<ResourceRecord> records;
         std::vector<uint8_t> raw_packet;
 
@@ -101,10 +102,13 @@ class DNS {
         void rewrite_id(uint16_t wire_id);
         std::string question_key() const;
         std::vector<uint8_t> local_response(bool truncated = false) const;
+        std::vector<uint8_t> failure_response() const;
         std::vector<uint8_t> client_response(const DNS& query, uint16_t original_id) const;
 
     private:
         std::string domain_name;
 };
+
+esp_err_t send_dns_datagram(int socket, sockaddr_in address, const std::vector<uint8_t>& bytes);
 
 #endif

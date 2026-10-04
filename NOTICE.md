@@ -9,7 +9,7 @@ that MIT license; no hardware designs are included.
 Fork maintainer and contributor: GitHub [@57ashraf](https://github.com/57ashraf).
 Copyright (c) 2026 57ashraf, for fork-authored modifications. This additional
 credit does not replace Esper's or any vendored dependency's original notices.
-Public repository name: `esper-esp32`; planned release version/tag: `v0.1.0`.
+Public repository name: `esper-esp32`; release version/tag: `v0.1.1`.
 
 Inherited: ESP-IDF startup/network skeleton, settings keys, UDP DNS filtering and
 relay, embedded HTTP interface structure, LittleFS integration and partition layout.
@@ -19,6 +19,10 @@ ephemeral UDP socket, raw allowed-packet forwarding and upstream TCP retry on TC
 v0.1.0 changes: conservative protocol/resource bounds, unique outstanding IDs,
 read-only diagnostics, optional synchronized query logging, safe settings/storage,
 explicit bootstrap/install/upgrade documentation and host regression tests.
+v0.1.1 changes: worker-owned tested forwarding lifecycle, best-effort SERVFAIL,
+idle expiry, robust upstream TCP framing/deadlines, minimal local EDNS replies,
+domain-free diagnostic counters, dashboard origin guard, portable real loopback
+tests and Linux sanitizer CI. No claim of physical-device validation is added.
 
 Vendored dependencies (source and original licenses only):
 

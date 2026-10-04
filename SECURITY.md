@@ -9,6 +9,10 @@ Only embedded dashboard assets and safe diagnostic JSON are served. Settings,
 blocklist files and filesystem paths are never HTTP resources. No mutation routes
 are registered. Query logging defaults off; enabling it exposes up to 100 recent
 domains/types/times to LAN peers. Client addresses are omitted.
+The v0.1.1 dashboard accepts only its configured hostname/current IPv4 Host at port
+80 and rejects foreign origins/cross-site data reads. This reduces browser DNS
+rebinding but is not authentication: a LAN peer can forge HTTP headers. Aggregate
+DNS counters contain no domains/client identifiers, but still reveal activity totals.
 
 Local Wi-Fi credentials are embedded in private firmware/configuration and saved
 in LittleFS/NVS. Do not publish binaries, flash images, logs, backups, edited
@@ -18,5 +22,7 @@ No software-only secret scanner can prove that arbitrary prose contains no secre
 Use tools/scan_publication.py on the exact export. Optionally compare against a
 private sdkconfig without printing its values. Also review all files and the Git
 history before any publication. This local export has no copied Git history.
+Git commit metadata can disclose account email independently of source files;
+use a GitHub noreply identity for future commits if that privacy matters to you.
 Report issues privately through the maintainer's chosen channel; no invented
 security-contact address or response-time promise is provided.

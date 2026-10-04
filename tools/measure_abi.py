@@ -38,7 +38,7 @@ def main():
             symbol=elf.get_section_by_name(".symtab").get_symbol_by_name("esper_abi_sizes")[0]
             section=elf.get_section(symbol["st_shndx"])
             offset=symbol["st_value"]
-            sizes=struct.unpack("<8I",section.data()[offset:offset+32])
-        names=["DNS","Client","Log_Entry","cJSON","std_string","byte_vector","Header","Question"]
+            sizes=struct.unpack("<10I",section.data()[offset:offset+40])
+        names=["DNS","Client","Log_Entry","cJSON","std_string","byte_vector","Header","Question","DnsForwarder","DnsMetrics"]
         print(json.dumps(dict(zip(names,sizes)),indent=2))
 if __name__=="__main__":main()

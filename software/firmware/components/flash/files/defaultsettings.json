@@ -1,4 +1,4 @@
 {
   "ip": "", "netmask": "", "gateway": "", "ssid": "", "password": "",
-  "url": "esper.local", "dns_srv": "8.8.8.8", "version": "0.1.0", "blocking": true
+  "url": "esper.local", "dns_srv": "8.8.8.8", "version": "0.1.1", "blocking": true
 }

@@ -13,6 +13,7 @@
 - Blocklist tooling needs Python standard library only.
 - Native C++ tests use LLVM-MinGW 20260922 (Windows UCRT x86_64), downloaded separately
   with the checksum pinned in CI. No system-wide compiler installation is required.
+- POSIX host tests use Clang; Linux CI runs the same suites under ASan/UBSan.
 - mklittlefs **2.5.1-2** (disk format 2.0) is needed only for deliberate first-install
   filesystem-image creation. Do not substitute a format-2.1 tool.
 
@@ -105,4 +106,6 @@ See tests/README.md for exactly what is and is not exercised.
 
 CI has a source scan, Python tests, actual C++ host tests and an SDK-pinned
 placeholder build. It has no firmware artifact upload, publish, flash or deployment
-step. CI itself has not been run remotely for this local source copy.
+step. v0.1.0's push/tag CI passed; v0.1.1 has an additional Linux sanitizer job.
+Check the exact candidate commit's runs, linked in release notes, before relying
+on any release. CI also verifies the SDK checkout SHA, not just its numeric version.

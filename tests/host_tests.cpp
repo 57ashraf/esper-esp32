@@ -1,6 +1,7 @@
 // Tests link actual firmware DNS, ESBL, settings, storage, logging and dashboard logic.
 #include "dns/dns.h"
 #include "dns/server.h"
+#include "dns/forwarder.h"
 #include "dns/logging.h"
 #include "safe_dashboard.h"
 #include "filesystem.h"
@@ -29,7 +30,7 @@ void set_bit(int) { blocking = true; }
 void clear_bit(int) { blocking = false; }
 Err::Err(std::string s, int n, const char* f, const char* fn, int l) throw(): msg(s), errcode(n), file(f),func(fn),line(l) {}
 const char* Err::what() const throw() { return msg.c_str(); }
-static int checks = 0;
+static std::atomic<int> checks{0};
 #define CHECK(x) do { ++checks; if (!(x)) throw std::runtime_error(std::string("CHECK failed: ")+#x+" line "+std::to_string(__LINE__)); } while(0)
 template<class F> static bool fails(F f) { try { f(); return false; } catch (...) { return true; } }
 static sockaddr_in source(uint32_t ip=1, uint16_t port=53) {
@@ -50,12 +51,22 @@ static void dns_tests() {
     for(unsigned t: {1U,28U,65U,5U,16U,257U}) { auto b=query("ExAmPlE.com",t); auto x=parse(b); CHECK(x.question.qtype==t); CHECK(x.question_key()==parse(query("example.com",t)).question_key()); }
     for(unsigned t: {1U,28U}) { auto x=parse(query("ad.example",t)); CHECK(x.add_answer(t==1?"0.0.0.0":"::")==ESP_OK);
         CHECK(x.send(1,source())==ESP_OK); auto ans=parse(sent_packet); CHECK(ans.header.qr); CHECK(ntohs(ans.header.ancount)==1); CHECK(!ans.header.ad); CHECK(ans.question.qtype==t);
-        CHECK(sent_packet.back()==0); CHECK(sent_packet.size()==query("ad.example",t).size()+12+(t==1?4:16)); }
+    CHECK(sent_packet.back()==0); CHECK(sent_packet.size()==query("ad.example",t).size()+12+(t==1?4:16)); }
     for(unsigned t:{5U,65U}) { auto x=parse(query("ad.example",t)); CHECK(x.send_blocked(1,source())==ESP_OK);
         auto ans=parse(sent_packet); CHECK(ans.header.qr && !ans.header.ancount && ans.question.qtype==t); }
     CHECK(parse(query("example.com",1,1232)).udp_limit==1232);
     CHECK(parse(query("example.com",1,65535)).udp_limit==4096);
     CHECK(parse(query("example.com",1,128)).udp_limit==512);
+    for (unsigned type : {1U,28U,5U,65U}) {
+        auto edns_query = parse(query("ads.example",type,1232));
+        if (type==1 || type==28) CHECK(edns_query.add_answer(type==1?"0.0.0.0":"::")==ESP_OK);
+        auto edns_answer = parse(edns_query.local_response());
+        CHECK(edns_answer.has_edns && edns_answer.udp_limit==1232 && ntohs(edns_answer.header.arcount)==1);
+        CHECK(!edns_answer.header.ad && !edns_answer.header.rcode);
+        auto failure=parse(edns_query.failure_response());
+        CHECK(failure.header.rcode==2 && !failure.header.ancount && !failure.header.aa && failure.header.ra);
+        CHECK(failure.has_edns && failure.question_key()==edns_query.question_key());
+    }
     for(size_t n=0;n<q.size();++n) { auto b=q; b.resize(n); CHECK(fails([&]{parse(b);})); }
     for(int offset:{2,3,4,5,6,7,8,9,10}) { auto b=q; b[offset]=0xff; CHECK(fails([&]{parse(b);})); }
     auto b=q; b[12]=0xc0; b[13]=12; CHECK(fails([&]{parse(b);})); // self-pointer
@@ -112,6 +123,82 @@ static void dns_tests() {
         std::vector<uint8_t> random(rng()%600); for(auto& v:random)v=rng();
         try { parse(random); } catch(const std::out_of_range&) {}
     }
+}
+struct FakeTransport final : ForwardTransport {
+    struct Delivery { std::vector<uint8_t> bytes; sockaddr_in address; };
+    std::vector<Delivery> upstream_packets, client_packets;
+    std::vector<uint8_t> tcp_reply;
+    bool fail_send=false, throw_send=false, throw_client=false, tcp_ok=false;
+    esp_err_t upstream_udp(const std::vector<uint8_t>& b,const sockaddr_in& a) override {
+        if (throw_send) throw std::bad_alloc();
+        upstream_packets.push_back({b,a}); return fail_send ? ESP_FAIL : ESP_OK;
+    }
+    esp_err_t client_udp(const std::vector<uint8_t>& b,const sockaddr_in& a) override {
+        if (throw_client) throw std::bad_alloc();
+        client_packets.push_back({b,a}); return ESP_OK;
+    }
+    bool upstream_tcp(const sockaddr_in&,const std::vector<uint8_t>&,std::vector<uint8_t>& b) override {
+        b=tcp_reply; return tcp_ok;
+    }
+};
+static DNS forwarded_answer(const FakeTransport& io,size_t i=0,bool truncated=false) {
+    auto b=io.upstream_packets.at(i).bytes; b[2]|=0x80;
+    if (truncated) b[2]|=2;
+    return DNS(&b,io.upstream_packets.at(i).address,sizeof(sockaddr_in));
+}
+static void forwarding_tests() {
+    auto before=dns_metrics();
+    FakeTransport io; DnsForwarder f(source(9),io);
+    auto a=parse(query("normal.example",1,1232)), b=parse(query("normal.example",1,1232));
+    a.addr=source(1,12000); b.addr=source(2,13000);
+    CHECK(f.submit(a,htons(7),10)==ESP_OK); CHECK(f.submit(b,htons(7),11)==ESP_OK);
+    CHECK(a.header.id==htons(0x1234) && b.header.id==a.header.id); // original objects not mutated
+    CHECK(io.upstream_packets.size()==2 && f.pending()==2);
+    CHECK(parse(io.upstream_packets[0].bytes).header.id!=parse(io.upstream_packets[1].bytes).header.id);
+    auto wrong=forwarded_answer(io); wrong.addr=source(8);
+    CHECK(f.answer(wrong,12)==ESP_FAIL && f.pending()==2 && io.client_packets.empty());
+    wrong=forwarded_answer(io); wrong.addr.sin_port=htons(54); CHECK(f.answer(wrong,12)==ESP_FAIL);
+    wrong=forwarded_answer(io); wrong.question.qtype=AAAA; CHECK(f.answer(wrong,12)==ESP_FAIL);
+    auto second=forwarded_answer(io,1); CHECK(f.answer(second,12)==ESP_OK && f.pending()==1);
+    CHECK(io.client_packets.back().address.sin_port==htons(13000));
+    CHECK(parse(io.client_packets.back().bytes).header.id==htons(0x1234));
+    CHECK(f.answer(second,12)==ESP_FAIL && io.client_packets.size()==1); // duplicate rejected
+    auto first=forwarded_answer(io); CHECK(f.answer(first,13)==ESP_OK && f.pending()==0);
+    CHECK(io.client_packets.back().address.sin_port==htons(12000));
+    for(bool throws:{false,true}) {
+        FakeTransport bad; bad.fail_send=!throws; bad.throw_send=throws; DnsForwarder g(source(9),bad);
+        auto q=parse(query("normal.example",28,1232));
+        CHECK(g.submit(q,7,0)==ESP_FAIL && g.pending()==0);
+        CHECK(bad.client_packets.size()==1 && parse(bad.client_packets[0].bytes).header.rcode==2);
+        CHECK(parse(bad.client_packets[0].bytes).header.id==q.header.id);
+    }
+    FakeTransport full; DnsForwarder table(source(9),full);
+    for(size_t i=0;i<MAX_PENDING_CLIENTS;++i) { auto q=parse(query()); q.addr=source(1,20000+i); CHECK(table.submit(q,0,100)==ESP_OK); }
+    auto overload=parse(query()); CHECK(table.submit(overload,0,100)==ESP_ERR_NO_MEM);
+    CHECK(table.pending()==16 && full.upstream_packets.size()==16);
+    CHECK(parse(full.client_packets.back().bytes).header.rcode==2);
+    table.expire(100+CLIENT_TIMEOUT_US-1); CHECK(table.pending()==16);
+    table.expire(100+CLIENT_TIMEOUT_US); CHECK(table.pending()==0 && full.client_packets.size()==17);
+    CHECK(table.answer(forwarded_answer(full),100+CLIENT_TIMEOUT_US)==ESP_FAIL); // late reply
+    auto new_q=parse(query()); CHECK(table.submit(new_q,42,100+CLIENT_TIMEOUT_US+1)==ESP_OK); // capacity recovered
+    full.throw_client=true; table.expire(100+2*CLIENT_TIMEOUT_US+1); CHECK(table.pending()==0);
+    for(int mode=0;mode<4;++mode) {
+        FakeTransport retry; DnsForwarder g(source(9),retry); auto q=parse(query("normal.example",65,1232));
+        CHECK(g.submit(q,8,0)==ESP_OK); auto tc=forwarded_answer(retry,0,true);
+        retry.tcp_ok=mode!=0; retry.tcp_reply=retry.upstream_packets[0].bytes; retry.tcp_reply[2]|=0x80;
+        if(mode==1) retry.tcp_reply[0]^=1; // mismatched transaction
+        if(mode==2) retry.tcp_reply.resize(13); // malformed full response
+        CHECK(g.answer(tc,1)==ESP_OK && g.pending()==0);
+        auto delivered=parse(retry.client_packets.back().bytes);
+        CHECK(delivered.header.tc==(mode!=3)); CHECK(delivered.header.id==q.header.id);
+    }
+    FakeTransport zero; DnsForwarder g(source(9),zero); auto q=parse(query()); CHECK(g.submit(q,9,0)==ESP_OK);
+    auto error=zero.upstream_packets[0].bytes; error.resize(12); error[2]|=0x80; error[3]=2; error[5]=0;
+    DNS err(&error,source(9),sizeof(sockaddr_in)); CHECK(g.answer(err,1)==ESP_OK && g.pending()==0);
+    auto after=dns_metrics();
+    CHECK(after.values[static_cast<unsigned>(DnsMetric::Overloaded)]-before.values[static_cast<unsigned>(DnsMetric::Overloaded)]==1);
+    CHECK(after.values[static_cast<unsigned>(DnsMetric::TcpAttempts)]-before.values[static_cast<unsigned>(DnsMetric::TcpAttempts)]==4);
+    CHECK(after.values[static_cast<unsigned>(DnsMetric::TcpFailures)]-before.values[static_cast<unsigned>(DnsMetric::TcpFailures)]==3);
 }
 static std::string read(const std::filesystem::path& p) { std::ifstream f(p,std::ios::binary); return {std::istreambuf_iterator<char>(f),{}}; }
 static void write(const std::filesystem::path& p,const std::string& text) { std::ofstream f(p,std::ios::binary); f<<text; }
@@ -172,13 +259,21 @@ static void list_tests(const std::filesystem::path& root) {
 #endif
 }
 static void dashboard_tests() {
+    CHECK(dashboard_origin_allowed("192.0.2.1","","","192.0.2.1","esper.local"));
+    CHECK(dashboard_origin_allowed("ESPER.local:80","http://esper.local:80","same-origin","192.0.2.1","esper.local"));
+    CHECK(dashboard_origin_allowed("esper.local.","","none","192.0.2.1","esper.local"));
+    for (const char* host : {"attacker.example","esper.local:81","esper.local:80:80","","esper.local@attacker.example","esper.local.."})
+        CHECK(!dashboard_origin_allowed(host,"","","192.0.2.1","esper.local"));
+    CHECK(!dashboard_origin_allowed("esper.local","http://attacker.example","","192.0.2.1","esper.local"));
+    CHECK(!dashboard_origin_allowed("esper.local","null","","192.0.2.1","esper.local"));
+    CHECK(!dashboard_origin_allowed("esper.local","","cross-site","192.0.2.1","esper.local"));
     for(const char* uri:{"/settings.json","/blacklist.txt","/blocklist.bin","/settings","/restart","/update","/ota","/../settings.json","/%2e%2e/settings.json","/status.json?settings"}) {
         CHECK(dashboard_route(uri,true)==DashboardRoute::Missing);
         CHECK(dashboard_route(uri,false)==DashboardRoute::Missing);
     }
     CHECK(dashboard_route("/status.json",true)==DashboardRoute::Status);
     CHECK(dashboard_route("/",false)==DashboardRoute::Missing);
-    SafeStatus s={true,true,true,true,1000,900,3,100,5,"192.0.2.1","8.8.8.8"};
+    SafeStatus s={true,true,true,true,1000,900,3,100,5,"192.0.2.1","8.8.8.8",{}};
     auto encoded=status_json(s); CHECK(encoded.find("ssid")==std::string::npos); CHECK(encoded.find("password")==std::string::npos);
     CHECK(encoded.find("update_srv")==std::string::npos); CHECK(encoded.find("fixture-")==std::string::npos);
     CHECK(start_webserver()==ESP_OK); CHECK(registered_routes.size()==1);
@@ -195,6 +290,21 @@ static void dashboard_tests() {
     httpd_req_t status={"/status.json"}; CHECK(registered_routes[0].handler(&status)==ESP_OK); CHECK(status.status==200);
     CHECK(status.response.find("fixture-")==std::string::npos); CHECK(status.response.find("password")==std::string::npos);
     CHECK(status.headers.count("Content-Security-Policy")==1);
+    CHECK(status.response.find("dns_timeouts")!=std::string::npos);
+    httpd_req_t navigation={"/"}; navigation.request_headers["Sec-Fetch-Site"]="cross-site";
+    navigation.request_headers["Sec-Fetch-Mode"]="navigate";
+    CHECK(registered_routes[0].handler(&navigation)==ESP_OK && navigation.status==200);
+    httpd_req_t foreign_status={"/status.json"}; foreign_status.request_headers=navigation.request_headers;
+    CHECK(registered_routes[0].handler(&foreign_status)==ESP_OK && foreign_status.status==403);
+    for (const char* key : {"Host","Origin","Sec-Fetch-Site"}) {
+        httpd_req_t malicious={"/status.json"}; malicious.request_headers[key]=std::string(key)=="Sec-Fetch-Site"?"cross-site":"attacker.example";
+        CHECK(registered_routes[0].handler(&malicious)==ESP_OK && malicious.status==403);
+        CHECK(malicious.response.find("fixture-")==std::string::npos);
+    }
+    httpd_req_t missing_host={"/status.json"}; missing_host.request_headers.clear();
+    CHECK(registered_routes[0].handler(&missing_host)==ESP_OK && missing_host.status==403);
+    httpd_req_t giant_header={"/status.json"}; giant_header.request_headers["Host"]=std::string(254,'x');
+    CHECK(registered_routes[0].handler(&giant_header)==ESP_OK && giant_header.status==500);
     Log_Entry e={};e.domain="\"\\\n<script>bad</script>"; auto json=query_entry_json(e);
     cJSON* p=cJSON_Parse(json.c_str());CHECK(p!=nullptr);cJSON_Delete(p);
     for(int i=0;i<150;++i) CHECK(log_query("example.com",true,28,1)==ESP_OK);
@@ -232,7 +342,7 @@ static void benchmark(const std::filesystem::path& root) {
 int main(int argc,char** argv) {
     try { if(argc==3) { benchmark(argv[1]);return 0; }
         if(argc!=2)throw std::runtime_error("Provide private fixture directory");
-        dns_tests(); storage_tests(argv[1]); list_tests(argv[1]); dashboard_tests();
+        dns_tests(); forwarding_tests(); storage_tests(argv[1]); list_tests(argv[1]); dashboard_tests();
         std::cout<<"PASS: "<<checks<<" checks; 20,000 malformed fuzz cases; actual firmware logic\n";
     } catch(const std::exception& e) {std::cerr<<e.what()<<"\n";return 1;}
 }

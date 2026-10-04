@@ -41,8 +41,23 @@ jobs:
         run: |
           set -eu
           . "$IDF_PATH/export.sh"
+          test "$(git -c safe.directory="$IDF_PATH" -C "$IDF_PATH" rev-parse HEAD)" = '38eeba213aa695aabfd6d89aa9f5078dbe5a94c3'
           printf 'CONFIG_WIFI_SSID="CI_PLACEHOLDER_SSID"\nCONFIG_WIFI_PASSWORD="CI_PLACEHOLDER_PASSWORD"\n' > "$RUNNER_TEMP/sdkconfig.placeholder"
           idf.py -C software/firmware -B "$RUNNER_TEMP/esper-build" -D "SDKCONFIG=$RUNNER_TEMP/sdkconfig" -D "SDKCONFIG_DEFAULTS=$GITHUB_WORKSPACE/software/firmware/sdkconfig.defaults;$RUNNER_TEMP/sdkconfig.placeholder" build
           idf.py -C software/firmware -B "$RUNNER_TEMP/esper-build" size
           python -B tools/report_build.py "$RUNNER_TEMP/esper-build"
+  sanitizer-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CC: clang
+      CXX: clang++
+      ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+      UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Actual C++ logic and loopback transports under ASan/UBSan
+        run: python3 -B tests/run_host_tests.py --sanitizers
 # Deliberately no upload-artifact, GitHub release creation, flashing, or deployment steps.

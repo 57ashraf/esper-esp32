@@ -1,49 +1,46 @@
-# Proposed public source-only tree — v0.1.0
+# Public source-only tree — v0.1.1
 
-Repository name: `esper-esp32`; GitHub maintainer: `@57ashraf`.
-This is the independent publication copy, not the original project/history.
-No repository or tag has been created. No hardware, credentials, generated
-blocklists, binaries or deployment data are included. The tree below lists all
-105 files, including hidden CI and ignore files.
+Repository: `esper-esp32`; GitHub maintainer: `@57ashraf`.
+Exactly 115 source files, including hidden CI/ignore files. This is the separate
+publication copy, not the original working project/history. No hardware, private
+configuration, credentials, generated lists, binaries, backups or deployment data.
 
 ```text
 esper-esp32/
 ├── .github/
 │   └── workflows/
 │       └── ci.yml
-├── .gitignore
-├── .publicationignore
-├── CHANGELOG.md
-├── LICENSE
-├── NOTICE.md
-├── README.md
-├── SECURITY.md
 ├── docs/
 │   ├── BUILD.md
+│   ├── DNS_RELIABILITY.md
 │   ├── INSTALL.md
 │   ├── LIMITATIONS.md
 │   ├── PUBLICATION_TREE.md
 │   ├── RELEASE_CHECKLIST.md
+│   ├── TROUBLESHOOTING.md
 │   └── VALIDATION.md
 ├── examples/
 │   ├── sdkconfig.example
 │   └── settings.example.json
 ├── software/
 │   ├── firmware/
-│   │   ├── CMakeLists.txt
-│   │   ├── README.md
 │   │   ├── components/
-│   │   │   ├── README.md
 │   │   │   ├── dns/
-│   │   │   │   ├── CMakeLists.txt
-│   │   │   │   ├── dns.cpp
 │   │   │   │   ├── include/
 │   │   │   │   │   └── dns/
 │   │   │   │   │       ├── dns.h
+│   │   │   │   │       ├── forwarder.h
 │   │   │   │   │       ├── logging.h
-│   │   │   │   │       └── server.h
+│   │   │   │   │       ├── metrics.h
+│   │   │   │   │       ├── server.h
+│   │   │   │   │       └── tcp_transport.h
+│   │   │   │   ├── CMakeLists.txt
+│   │   │   │   ├── dns.cpp
+│   │   │   │   ├── forwarder.cpp
 │   │   │   │   ├── logging.cpp
-│   │   │   │   └── server.cpp
+│   │   │   │   ├── metrics.cpp
+│   │   │   │   ├── server.cpp
+│   │   │   │   └── tcp_transport.cpp
 │   │   │   ├── error/
 │   │   │   │   ├── CMakeLists.txt
 │   │   │   │   ├── error.cpp
@@ -53,21 +50,21 @@ esper-esp32/
 │   │   │   │   ├── events.cpp
 │   │   │   │   └── events.h
 │   │   │   ├── flash/
-│   │   │   │   ├── CMakeLists.txt
 │   │   │   │   ├── files/
 │   │   │   │   │   ├── app_scripts.js
 │   │   │   │   │   ├── defaultsettings.json
 │   │   │   │   │   ├── homepage.html
 │   │   │   │   │   └── stylesheet.css
+│   │   │   │   ├── CMakeLists.txt
 │   │   │   │   ├── filesystem.cpp
 │   │   │   │   └── filesystem.h
 │   │   │   ├── http/
-│   │   │   │   ├── CMakeLists.txt
-│   │   │   │   ├── get_handlers.cpp
 │   │   │   │   ├── include/
 │   │   │   │   │   ├── get_handlers.h
 │   │   │   │   │   ├── safe_dashboard.h
 │   │   │   │   │   └── webserver.h
+│   │   │   │   ├── CMakeLists.txt
+│   │   │   │   ├── get_handlers.cpp
 │   │   │   │   ├── safe_dashboard.cpp
 │   │   │   │   └── webserver.cpp
 │   │   │   ├── lists/
@@ -75,76 +72,92 @@ esper-esp32/
 │   │   │   │   ├── lists.cpp
 │   │   │   │   └── lists.h
 │   │   │   ├── littlefs/
+│   │   │   │   ├── include/
+│   │   │   │   │   └── esp_littlefs.h
+│   │   │   │   ├── src/
+│   │   │   │   │   ├── littlefs/
+│   │   │   │   │   │   ├── lfs_util.c
+│   │   │   │   │   │   ├── lfs_util.h
+│   │   │   │   │   │   ├── lfs.c
+│   │   │   │   │   │   ├── lfs.h
+│   │   │   │   │   │   └── LICENSE.md
+│   │   │   │   │   ├── esp_littlefs.c
+│   │   │   │   │   ├── fd_guard.h
+│   │   │   │   │   ├── lfs_config.c
+│   │   │   │   │   ├── lfs_config.h
+│   │   │   │   │   ├── littlefs_api.c
+│   │   │   │   │   └── littlefs_api.h
 │   │   │   │   ├── CMakeLists.txt
 │   │   │   │   ├── Kconfig
 │   │   │   │   ├── LICENSE
-│   │   │   │   ├── README.md
-│   │   │   │   ├── include/
-│   │   │   │   │   └── esp_littlefs.h
-│   │   │   │   └── src/
-│   │   │   │       ├── esp_littlefs.c
-│   │   │   │       ├── fd_guard.h
-│   │   │   │       ├── lfs_config.c
-│   │   │   │       ├── lfs_config.h
-│   │   │   │       ├── littlefs/
-│   │   │   │       │   ├── LICENSE.md
-│   │   │   │       │   ├── lfs.c
-│   │   │   │       │   ├── lfs.h
-│   │   │   │       │   ├── lfs_util.c
-│   │   │   │       │   └── lfs_util.h
-│   │   │   │       ├── littlefs_api.c
-│   │   │   │       └── littlefs_api.h
+│   │   │   │   └── README.md
 │   │   │   ├── netif/
-│   │   │   │   ├── CMakeLists.txt
 │   │   │   │   ├── include/
 │   │   │   │   │   ├── ip.h
 │   │   │   │   │   └── wifi.h
+│   │   │   │   ├── CMakeLists.txt
 │   │   │   │   ├── ip.cpp
 │   │   │   │   └── wifi.cpp
-│   │   │   └── settings/
-│   │   │       ├── CMakeLists.txt
-│   │   │       ├── settings.cpp
-│   │   │       └── settings.h
+│   │   │   ├── settings/
+│   │   │   │   ├── CMakeLists.txt
+│   │   │   │   ├── settings.cpp
+│   │   │   │   └── settings.h
+│   │   │   └── README.md
 │   │   ├── main/
 │   │   │   ├── CMakeLists.txt
 │   │   │   ├── Kconfig.projbuild
 │   │   │   └── startup.cpp
+│   │   ├── CMakeLists.txt
 │   │   ├── partitions_table.csv
+│   │   ├── README.md
 │   │   └── sdkconfig.defaults
 │   └── tools/
 │       └── blocklist/
-│           ├── README.md
 │           ├── benchmark_blocklist.py
 │           ├── blocklist_format.py
 │           ├── generate_blocklist.py
+│           ├── README.md
 │           └── test_blocklist.py
 ├── tests/
-│   ├── README.md
-│   ├── host_tests.cpp
-│   ├── littlefs_tests.cpp
-│   ├── run_host_tests.py
 │   ├── shims/
-│   │   ├── esp_http_server.h
-│   │   ├── esp_log.h
-│   │   ├── esp_system.h
-│   │   ├── esp_timer.h
 │   │   ├── freertos/
 │   │   │   ├── FreeRTOS.h
 │   │   │   ├── semphr.h
 │   │   │   └── task.h
-│   │   └── lwip/
-│   │       └── sockets.h
+│   │   ├── lwip/
+│   │   │   └── sockets.h
+│   │   ├── esp_http_server.h
+│   │   ├── esp_log.h
+│   │   ├── esp_system.h
+│   │   └── esp_timer.h
+│   ├── vendor/
+│   │   └── cJSON/
+│   │       ├── cJSON.c
+│   │       ├── cJSON.h
+│   │       └── LICENSE
+│   ├── host_tests.cpp
+│   ├── littlefs_tests.cpp
+│   ├── README.md
+│   ├── run_host_tests.py
 │   ├── test_release.py
 │   ├── test_tools.py
-│   └── vendor/
-│       └── cJSON/
-│           ├── LICENSE
-│           ├── cJSON.c
-│           └── cJSON.h
-└── tools/
-    ├── abi_sizes.cpp
-    ├── measure_abi.py
-    ├── prepare_filesystem.py
-    ├── report_build.py
-    └── scan_publication.py
+│   └── transport_tests.cpp
+├── tools/
+│   ├── abi_sizes.cpp
+│   ├── measure_abi.py
+│   ├── prepare_filesystem.py
+│   ├── report_build.py
+│   └── scan_publication.py
+├── .gitignore
+├── .publicationignore
+├── CHANGELOG.md
+├── CONTRIBUTING.md
+├── LICENSE
+├── NOTICE.md
+├── README.md
+└── SECURITY.md
 ```
+
+Publication is restricted to this exact export. Private validation/build/tool files
+and the surrounding workspace must never be uploaded. tests/test_release.py checks
+this entire documented tree against the export.

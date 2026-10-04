@@ -5,6 +5,7 @@
 #include "events.h"
 #include "esp_timer.h"
 #include "esp_system.h"
+#include <stdexcept>
 #ifndef ESPER_HOST_TEST
 #define ASSET(SYMBOL) extern const unsigned char SYMBOL##_start[] asm("_binary_" #SYMBOL "_start"); \
                      extern const unsigned char SYMBOL##_end[] asm("_binary_" #SYMBOL "_end")
@@ -21,11 +22,28 @@ static esp_err_t asset(httpd_req_t* r, const unsigned char* begin, const unsigne
     httpd_resp_set_type(r, type);
     return httpd_resp_send(r, reinterpret_cast<const char*>(begin), end-begin);
 }
+static std::string header(httpd_req_t* req, const char* name, size_t limit) {
+    size_t length = httpd_req_get_hdr_value_len(req, name);
+    if (length > limit) throw std::runtime_error("Oversized request header");
+    if (!length) return {};
+    std::vector<char> bytes(length+1);
+    if (httpd_req_get_hdr_value_str(req, name, bytes.data(), bytes.size()) != ESP_OK)
+        throw std::runtime_error("Unavailable request header");
+    return std::string(bytes.data(), length);
+}
 esp_err_t get_handler(httpd_req_t* req) {
     httpd_resp_set_hdr(req, "Cache-Control", "no-store");
     httpd_resp_set_hdr(req, "X-Content-Type-Options", "nosniff");
     httpd_resp_set_hdr(req, "Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; frame-ancestors 'none'; base-uri 'none'");
     try {
+        // Browser rebinding/foreign-origin guard; NOT LAN authentication.
+        auto site = header(req, "Sec-Fetch-Site", 16);
+        if (site == "cross-site" && header(req, "Sec-Fetch-Mode", 16) == "navigate" &&
+            dashboard_route(req->uri, req->method == HTTP_GET) == DashboardRoute::Home) site = "none";
+        if (!dashboard_origin_allowed(header(req, "Host", 253), header(req, "Origin", 270),
+                site, setting::read_str(setting::IP),
+                setting::read_str(setting::HOSTNAME)))
+            return httpd_resp_send_err(req, HTTPD_403_FORBIDDEN, "Forbidden");
         switch (dashboard_route(req->uri, req->method == HTTP_GET)) {
         case DashboardRoute::Home: return asset(req, homepage_html_start, homepage_html_end, "text/html");
         case DashboardRoute::Script: return asset(req, app_scripts_js_start, app_scripts_js_end, "text/javascript");
@@ -35,7 +53,7 @@ esp_err_t get_handler(httpd_req_t* req) {
             SafeStatus s = {check_bit(WIFI_GOT_IP_BIT), setting::read_bool(setting::BLOCK), b.valid, query_logging_enabled(),
                 esp_get_free_heap_size(), esp_get_minimum_free_heap_size(), b.records, b.bytes,
                 static_cast<unsigned long long>(esp_timer_get_time()/1000000),
-                setting::read_str(setting::IP), setting::read_str(setting::DNS_SRV)};
+                setting::read_str(setting::IP), setting::read_str(setting::DNS_SRV), dns_metrics()};
             auto json = status_json(s);
             httpd_resp_set_type(req, "application/json");
             return httpd_resp_send(req, json.data(), json.size());

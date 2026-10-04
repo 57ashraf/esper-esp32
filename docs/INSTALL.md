@@ -1,7 +1,7 @@
 # First install versus upgrade
 
 These are **manual future-use instructions**, not operations performed on the device
-during release preparation. v0.1.0 hardware validation is pending. Verify your exact
+during source release work. v0.1.1 hardware validation is pending. Verify your exact
 ESP32 variant and 4 MB flash before any flash. ESP32-S2/S3/C3 and PSRAM boards are not
 validated targets. Save the complete original flash/config privately before upgrading.
 
@@ -56,7 +56,7 @@ upgrade boot. Deliberately creating a new filesystem is a first-install action.
 - Reusing the prior directory preserves its files but subsequent lease/settings
   writes can update shared data there. This is **not an immutable rollback snapshot**.
   Full backup is still necessary. No native OTA update or automatic rollback
-  orchestration is offered in v0.1.0.
+  orchestration is offered in v0.1.1.
 - Changing build-time credentials does not override an existing settings.json.
   Do not erase storage to change credentials. Plan a reviewed local/offline data
   edit and backup; there is deliberately no HTTP configuration endpoint.
@@ -69,4 +69,4 @@ EDNS 1232 and 4096, malformed datagrams and concurrent equal-ID requests.
 Then repeat the Power Hub path manually; never change router settings automatically.
 Run a long heap soak with minimum free heap, largest free block, queue pressure,
 Wi-Fi reconnects and query logging both off/on. Exercise upgrade and power-loss
-recovery separately. This release preparation has performed none of those steps.
+recovery separately. This source release work has performed none of those steps.

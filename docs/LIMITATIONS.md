@@ -1,4 +1,4 @@
-# Known v0.1.0 limitations and deliberately deferred work
+# Known v0.1.1 limitations and deliberately deferred work
 
 - Experimental legacy EOL ESP-IDF 4.4.7; no production/availability/security warranty.
 - Classic ESP32-WROOM 4 MB/no PSRAM only. Ethernet/GPIO/hardware designs excluded.
@@ -12,6 +12,8 @@
   fill the bounded receive queue. Its lwIP/network behavior needs hardware testing.
 - Standard opcode 0, one IN-class question, maximum query 2048 bytes; receive/response
   maximum 4096 bytes. Invalid/unsupported packets are dropped (client may time out).
+  Valid parsed requests that cannot forward get best-effort SERVFAIL; this is not
+  a guarantee of a reply when RAM, sockets or Wi-Fi fail.
   Compression pointers must point backwards into packet data and are capped at
   32 hops/255 expanded octets. TSIG and nonzero EDNS query versions are unsupported.
 - Block A/AAAA with zero addresses; CNAME/HTTPS question types with NODATA. Other
@@ -34,16 +36,24 @@
   to another network. No browser-based provisioning or configuration.
 - HTTP diagnostics are unauthenticated and unencrypted. Optional query logs are
   RAM-only, capped at 100, but visible to LAN peers. Query times are device wall-clock
-  values without SNTP in v0.1.0; uptime is the reliable time diagnostic.
+  values without SNTP; uptime is the reliable time diagnostic. Host/origin guards
+  reduce browser rebinding, not access by LAN peers who can forge request headers.
+  Aggregate counters wrap at 2^32 and are approximate, not measured latency/heap soak.
 - Settings use a synchronized cJSON tree and same-directory temp/sync/rename writes;
   files are capped at 4096 bytes, 16 flat fields, 32-byte keys, and bounded string
   values. Existing configurations outside that conservative schema need a
   separately reviewed offline conversion; they are retained, not overwritten.
   host fault tests are not a physical-flash/power-cut guarantee.
-- Native harness is Windows/MinGW; malformed fuzzing is a smoke test, not exhaustive
-  fuzzing. CI is defined but remote execution and hardware integration remain pending.
+- Native harness supports Windows/MinGW and POSIX Clang, with Linux ASan/UBSan CI.
+  Real loopback tests cover upstream TCP/UDP helpers, not the FreeRTOS listener/queue,
+  lwIP/Wi-Fi/NVS integration or a client TCP server. Fuzzing is still a smoke test,
+  not exhaustive security validation. Hardware integration remains pending.
+- Transaction IDs are unique while live, not permanently quarantined after reuse.
+  An extremely late identical reply can match a reused ID/tuple. Source/question
+  checks improve correlation but do not authenticate public UDP DNS.
 
 Deferred: client TCP listener, SDK migration, encrypted upstream, response alias
 filtering, cache, automatic feeds, allowlists, rate limiting, authentication,
 encrypted secrets, IPv6 service, hardware assets, binaries/browser flasher,
-GitHub creation/push and deployment. Those require separate scope and validation.
+device deployment. Those require separate scope and validation. Publishing the
+source is authorized separately; no physical-device or router action is implied.

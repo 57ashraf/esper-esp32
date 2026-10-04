@@ -28,7 +28,7 @@ extern "C" void app_main() {
         start_dns();
         TRY(start_webserver())
         clear_bit(INITIALIZING_BIT);
-        ESP_LOGI("BOOT", "Experimental v0.1.0 ready on trusted LAN");
+        ESP_LOGI("BOOT", "Experimental v0.1.1 ready on trusted LAN; hardware validation pending");
     } catch (...) {
         set_bit(ERROR_BIT);
         ESP_LOGE("BOOT", "Initialization failed; data retained. Recover locally.");

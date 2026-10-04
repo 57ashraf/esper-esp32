@@ -2,6 +2,25 @@
 #include "cJSON.h"
 #include <memory>
 #include <stdexcept>
+static void fold(std::string& s) {
+    for (char& c : s) if (c >= 'A' && c <= 'Z') c += 'a'-'A';
+}
+bool dashboard_origin_allowed(std::string host, std::string origin, const std::string& site,
+                              const std::string& ip, std::string hostname) {
+    if (host.empty() || host.size() > 253 || origin.size() > 270 ||
+        (!site.empty() && site != "none" && site != "same-origin")) return false;
+    fold(host); fold(origin); fold(hostname);
+    auto authority = host;
+    auto colon = host.find(':');
+    if (colon != std::string::npos) {
+        if (host.substr(colon) != ":80") return false;
+        host.resize(colon);
+    }
+    if (!host.empty() && host.back() == '.') host.pop_back();
+    if (!hostname.empty() && hostname.back() == '.') hostname.pop_back();
+    if (host.empty() || (host != ip && (hostname.empty() || host != hostname))) return false;
+    return origin.empty() || origin == "http://" + authority;
+}
 DashboardRoute dashboard_route(const std::string& uri, bool get) {
     if (!get || uri.size() > 511) return DashboardRoute::Missing;
     if (uri == "/" || uri == "/index.html") return DashboardRoute::Home;
@@ -30,7 +49,7 @@ static void bool_field(cJSON* j, const char* key, bool v) {
 std::string status_json(const SafeStatus& s) {
     Json j(cJSON_CreateObject(), cJSON_Delete);
     if (!j) throw std::bad_alloc();
-    string_field(j.get(), "version", "0.1.0");
+    string_field(j.get(), "version", "0.1.1");
     string_field(j.get(), "sdk", "4.4.7 (EOL)");
     string_field(j.get(), "lan_ip", s.lan_ip.substr(0, 15));
     string_field(j.get(), "upstream", s.upstream.substr(0, 15));
@@ -39,6 +58,12 @@ std::string status_json(const SafeStatus& s) {
     number_field(j.get(), "records", s.records); number_field(j.get(), "blocklist_bytes", s.blocklist_bytes);
     number_field(j.get(), "free_heap", s.free_heap); number_field(j.get(), "min_heap", s.min_heap);
     number_field(j.get(), "uptime_seconds", s.uptime_seconds);
+    static const char* names[] = {"dns_received", "dns_malformed", "dns_queue_drops", "dns_blocked",
+        "dns_forwarded", "dns_answered", "dns_unmatched", "dns_overloaded", "dns_send_failures",
+        "dns_timeouts", "dns_tcp_attempts", "dns_tcp_failures"};
+    static_assert(sizeof(names)/sizeof(*names) == static_cast<unsigned>(DnsMetric::Count), "Metric names");
+    for (unsigned i = 0; i < static_cast<unsigned>(DnsMetric::Count); ++i)
+        number_field(j.get(), names[i], s.dns.values[i]);
     return encode(j.get());
 }
 std::string query_entry_json(const Log_Entry& e) {

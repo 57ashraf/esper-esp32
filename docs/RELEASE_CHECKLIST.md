@@ -1,24 +1,29 @@
-# Source-only v0.1.0 release checklist
+# Experimental source-only release checklist
 
-Completed local preparation gates are recorded in VALIDATION.md, not assumed here.
+Use [VALIDATION.md](VALIDATION.md) for measured evidence and release notes for the
+exact source commit and CI run. Never infer hardware validation from a green build.
 
-- [ ] Read experimental/EOL/LAN-only/security caveats and accept the scope.
-- [ ] Preserve MIT Esper attribution and vendored MIT/BSD licenses; review NOTICE.
-- [ ] Confirm no hardware designs or HaGeZi/generated data are in the export.
-- [ ] Use a fresh exact ESP-IDF v4.4.7 build with placeholder credentials.
-- [ ] Record actual binary, app slots/headroom, static RAM and bounded allocations.
-- [ ] Run actual C++ host tests, collision/corruption/reproducibility tests and scan.
-- [ ] Review exact publication tree and any future Git history for private material.
-- [ ] Verify dashboard contains no secret, mutation or arbitrary filesystem route.
-- [ ] Leave on-device/Power Hub/heap-soak/power-cut/upgrade validation explicitly pending.
-- [x] User selected repository name `esper-esp32`, version/tag `v0.1.0` and
-  GitHub-only attribution to `@57ashraf`; no legal name or email is required.
-- [ ] Obtain separate authorization before creating the repository/tag or publishing.
-- [ ] Keep local credentials, backups, builds and compiler tools outside the export.
-- [ ] If/when authorized, create a new source-only repository; never import original
-  history or use git add on the original working/device project.
-- [ ] Review any CI run separately; no artifact-upload or deployment steps.
-- [ ] Do not call this a stable or hardware-validated release.
+- [ ] Preserve upstream MIT attribution and every vendored MIT/BSD notice.
+- [ ] Keep the release experimental, source-only and trusted-LAN-only.
+- [ ] Prominently state that this release has not been physically validated.
+- [ ] Preserve the legacy EOL SDK and no-public-HTTP/DNS warnings.
+- [ ] Test actual C++ logic, transport faults, collisions, storage and secret routes.
+- [ ] Run Windows tests and Linux ASan/UBSan on the release candidate.
+- [ ] Build from an empty directory/config with exact ESP-IDF v4.4.7 and placeholders.
+- [ ] Record actual application binary, slot headroom, static RAM and allocation bounds.
+- [ ] Scan the exact export, including hidden CI files and known-private-value comparison.
+- [ ] Check licenses and privacy in new files, Git diffs and commit metadata/history.
+- [ ] Ensure no hardware designs, credentials, private paths, logs, binaries, build
+  outputs, backups, generated blocklists or surrounding workspace files are included.
+- [ ] Verify the documented publication tree matches the exact source export.
+- [ ] Check current commit's CI jobs, not just an old release or the branch badge.
+- [ ] Publish only after the user explicitly authorizes source publication.
+- [ ] Create a new experimental prerelease tag without moving older tags.
+- [ ] Verify public files by path/blob hash and tag-to-commit correspondence.
+- [ ] Attach no custom release artifacts; automatic archives contain source only.
+- [ ] Leave boot, Wi-Fi/lwIP integration, heap soak, upgrade/power loss and Power Hub
+  regression tests pending until separately authorized and actually performed.
 
-No GitHub repository, commit, tag, push, remote CI run or deployment is authorized
-by the local preparation request. Stop at the reviewed publication copy.
+The v0.1.1 improvement/publication request authorizes this source release only.
+It does not authorize a hardware flash or network-setting change. The original
+working project, prior local publication copy and v0.1.0 tag must remain intact.

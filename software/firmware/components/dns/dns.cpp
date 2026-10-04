@@ -82,6 +82,7 @@ DNS::DNS(std::vector<uint8_t>* b, sockaddr_in source, socklen_t length): addr(so
                 if (section != 2 || opt || (*b)[owner_start] != 0 || !owner.empty())
                     throw std::out_of_range("Invalid OPT owner or duplicate");
                 opt = true;
+                has_edns = true;
                 if (!header.qr && ((*b)[p+4] || (*b)[p+5])) throw std::out_of_range("Unsupported EDNS version");
                 udp_limit = std::max<uint16_t>(512, std::min<uint16_t>(MAX_PACKET_SIZE, clss));
                 for (size_t o = data; o < data+len;) {
@@ -140,6 +141,25 @@ std::vector<uint8_t> DNS::local_response(bool truncated) const {
     if (!truncated) for (auto& r : records) {
         ResourceRecord copy = r; auto rb = copy.serialize(); b.insert(b.end(),rb.begin(),rb.end());
     }
+    if (has_edns) {
+        // EDNS is hop-by-hop. A local answer acknowledges EDNS0, but does not
+        // copy client options or claim DNSSEC authentication (DO/AD stay clear).
+        b[10] = 0; b[11] = 1;
+        b.insert(b.end(), {0, 0, 41, static_cast<uint8_t>(udp_limit >> 8),
+                          static_cast<uint8_t>(udp_limit), 0, 0, 0, 0, 0, 0});
+    }
+    return b;
+}
+std::vector<uint8_t> DNS::failure_response() const {
+    Header h = local_header(header); h.aa = 0; h.rcode = 2;
+    auto ptr = reinterpret_cast<const uint8_t*>(&h);
+    std::vector<uint8_t> b(ptr, ptr+12);
+    Question q = question; auto qb = q.serialize(); b.insert(b.end(), qb.begin(), qb.end());
+    if (has_edns) {
+        b[11] = 1;
+        b.insert(b.end(), {0, 0, 41, static_cast<uint8_t>(udp_limit >> 8),
+                          static_cast<uint8_t>(udp_limit), 0, 0, 0, 0, 0, 0});
+    }
     return b;
 }
 std::vector<uint8_t> DNS::client_response(const DNS& query, uint16_t original_id) const {
@@ -152,16 +172,16 @@ std::vector<uint8_t> DNS::client_response(const DNS& query, uint16_t original_id
     }
     memcpy(b.data(), &original_id, 2); return b;
 }
-static esp_err_t transmit(int sock, sockaddr_in addr, const std::vector<uint8_t>& b) {
+esp_err_t send_dns_datagram(int sock, sockaddr_in addr, const std::vector<uint8_t>& b) {
     for (int retry = 0; retry < 4; ++retry) {
-        int n = sendto(sock, b.data(), b.size(), 0, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
+        int n = sendto(sock, reinterpret_cast<const char*>(b.data()), b.size(), 0, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
         if (n == static_cast<int>(b.size())) return ESP_OK;
         if (errno != ENOMEM) return ESP_FAIL;
         vTaskDelay(pdMS_TO_TICKS(25));
     }
     return ESP_FAIL;
 }
-esp_err_t DNS::send(int sock, sockaddr_in addr) { return transmit(sock,addr,local_response()); }
-esp_err_t DNS::send_blocked(int sock, sockaddr_in addr) { records.clear(); return transmit(sock,addr,local_response()); }
-esp_err_t DNS::send_raw(int sock, sockaddr_in addr) { return transmit(sock,addr,raw_packet); }
+esp_err_t DNS::send(int sock, sockaddr_in addr) { return send_dns_datagram(sock,addr,local_response()); }
+esp_err_t DNS::send_blocked(int sock, sockaddr_in addr) { records.clear(); return send_dns_datagram(sock,addr,local_response()); }
+esp_err_t DNS::send_raw(int sock, sockaddr_in addr) { return send_dns_datagram(sock,addr,raw_packet); }
 

@@ -5,7 +5,7 @@
 #include <cstring>
 #include <utility>
 #include <unistd.h>
-#ifdef ESPER_HOST_TEST
+#if defined(ESPER_HOST_TEST) && defined(_WIN32)
 #include <windows.h>
 #include <io.h>
 #endif
@@ -56,7 +56,7 @@ void fs::file::sync_close() {
     if (fail_sync) THROWE(FS_ERR_INIT, "Injected sync fault");
 #endif
     if (fflush(handle)) THROWE(errno, "Data flush failed");
-#ifndef ESPER_HOST_TEST
+#if !defined(ESPER_HOST_TEST) || !defined(_WIN32)
     if (fsync(fileno(handle))) THROWE(errno, "Data sync failed");
 #else
     if (_commit(_fileno(handle))) THROWE(errno, "Data sync failed");
@@ -82,6 +82,8 @@ void fs::unlink(std::string path) {
 void fs::rename(std::string before, std::string after) {
 #ifdef ESPER_HOST_TEST
     if (fail_rename) THROWE(FS_ERR_INIT, "Injected rename fault");
+#endif
+#if defined(ESPER_HOST_TEST) && defined(_WIN32)
     // Windows CRT rename does not replace an existing destination.
     if (!MoveFileExA(path_in_root(before).c_str(), path_in_root(after).c_str(),
                      MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH))

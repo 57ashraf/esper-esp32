@@ -33,7 +33,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(documented, actual)
     def test_release_identity_and_prominent_validation_warning(self):
         readme = (ROOT/"README.md").read_text(encoding="utf-8")
-        self.assertTrue(readme.startswith("# esper-esp32 — v0.1.0 (experimental)"))
+        self.assertTrue(readme.startswith("# esper-esp32 — v0.1.1 (experimental)"))
         introduction = " ".join(readme.split("## What it does", 1)[0].split())
         for required in ("trusted-LAN-only", "@57ashraf", "not been flashed or physically validated"):
             self.assertIn(required, introduction)
@@ -41,7 +41,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertIn("Copyright (c) 2021 Zach Morris", notice)
         self.assertIn("Copyright (c) 2026 57ashraf", notice)
         self.assertIn("Copyright (c) 2021 Zach Morris", (ROOT/"LICENSE").read_text(encoding="utf-8"))
-        self.assertIn('set(PROJECT_VER "0.1.0")', (ROOT/"software/firmware/CMakeLists.txt").read_text(encoding="utf-8"))
+        self.assertIn('set(PROJECT_VER "0.1.1")', (ROOT/"software/firmware/CMakeLists.txt").read_text(encoding="utf-8"))
     def test_scanner_rejects_private_configs_and_logs(self):
         with tempfile.TemporaryDirectory() as temp:
             copy = Path(temp)/"source"
