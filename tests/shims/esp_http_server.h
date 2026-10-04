@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <cstring>
 constexpr int HTTP_GET=0, HTTP_POST=1, HTTP_PUT=2, HTTP_DELETE=3;
 constexpr int HTTPD_403_FORBIDDEN=403, HTTPD_404_NOT_FOUND=404, HTTPD_500_INTERNAL_SERVER_ERROR=500;
 using httpd_handle_t = void*;
