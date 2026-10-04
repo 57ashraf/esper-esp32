@@ -41,7 +41,7 @@ def main():
             kwargs = {"hash_function": lambda _: 42} if collisions else {}
             image, _ = build_binary(parse_rules(["ads.example", "*.wild.example", "track?.foo"]), **kwargs)
             (data/"blocklist.bin").write_bytes(image)
-            exe = temp/(mode+(".exe" if os.name=="nt" else ""))
+            exe = temp/("host-"+mode+(".exe" if os.name=="nt" else ""))
             flags = ["-std=c++17", "-O2", "-g", "-pthread", "-DESPER_HOST_TEST"]
             if mode != "logging-off": flags += ["-DCONFIG_ESPER_QUERY_LOG_ENABLED"]
             if collisions: flags += ["-DESPER_TEST_COLLISION_HASH"]
